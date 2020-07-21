@@ -37,6 +37,55 @@ Ray CreateCameraRay(float2 uv)
     return CreateRay(origin,direction);
 }
 
+struct RayHit{
+    float3 position;
+    float distance;
+    float3 normal;
+};
+
+RayHit CreateRayHit()
+{
+    RayHit hit;
+    hit.position=float3(0.0f,0.0f,0.0f);
+    hit.distance=1.#INF;   //无穷大
+    hit.normal=float3(0.0f,0.0f,0.0f);
+    return hit;
+}
+
+void IntersectGroundPlane(Ray ray,inout RayHit bestHit)
+{
+    //Calculate distance alone the ray where the groud plane is intersected
+    //根据相似三角形可以很容易推导出 
+    float t=-ray.origin.y/ray.direction.y;
+    if(t>0&&t<bestHit.distance)
+    {
+        bestHit.distance=t;
+        bestHit.position=ray.origin+t*ray.direction;
+        bestHit.normal=float3(0.0f,1.0f,0.0f);
+    }
+}
+RayHit Trace(Ray ray)
+{
+    RayHit bestHit=CreateRayHit();
+    IntersectGroundPlane(ray,bestHit);
+    return bestHit;
+}
+float3 Shade(inout Ray ray,RayHit hit)
+{
+    if(hit.distance<1.#INF)
+    {
+        //return the normal 
+       return hit.normal*0.5f+0.5f;
+    }
+    else
+    {
+        //sample the skybox and write it 
+        float theta=acos(ray.direction.y)/-PI;
+        float phi=atan2(ray.direction.x,-ray.direction.z)/-PI*0.5f;
+        return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture,float2(phi,theta),0).xyz; 
+    }
+}
+
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
@@ -52,8 +101,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     Ray ray=CreateCameraRay(uv);
 
     //Sample the skybox and write it 
-    float theta=acos(ray.direction.y)/-PI;
-    float phi=atan2(ray.direction.x,-ray.direction.z)/-PI*0.5f;
+    //float theta=acos(ray.direction.y)/-PI;
+    //float phi=atan2(ray.direction.x,-ray.direction.z)/-PI*0.5f;
 
-    Result[id.xy] =_SkyboxTexture.SampleLevel(sampler_SkyboxTexture,float2(phi,theta),0);    //float4(ray.direction*0.5f+0.5f,1.0f);
+    //Result[id.xy] =_SkyboxTexture.SampleLevel(sampler_SkyboxTexture,float2(phi,theta),0);    //float4(ray.direction*0.5f+0.5f,1.0f);
+
+    //Trace and shade 
+    RayHit hit=Trace(ray);
+    float3 result=Shade(ray,hit);
+    Result[id.xy]=float4(result,1);
 }
