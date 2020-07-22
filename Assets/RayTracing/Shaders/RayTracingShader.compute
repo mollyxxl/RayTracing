@@ -9,7 +9,7 @@ float4x4 _CameraInverseProjection;
 Texture2D<float4> _SkyboxTexture;
 SamplerState sampler_SkyboxTexture;
 static const float PI=3.14159265f;
-
+float2 _PixelOffset;
 struct Ray{
     float3 origin;
     float3 direction;
@@ -30,7 +30,7 @@ Ray CreateCameraRay(float2 uv)
     //perspective projection to view space
     float3 direction =mul(_CameraInverseProjection,float4(uv,0.0f,1.0f)).xyz;
     //view space to world space
-    direction=mul(_CameraToWorld,float4(direction,0.0f));
+    direction=mul(_CameraToWorld,float4(direction,0.0f)).xyz;
     //normalize
     direction=normalize(direction);
 
@@ -85,7 +85,7 @@ void IntersectSphere(Ray ray,inout RayHit bestHit,float4 sphere)
 RayHit Trace(Ray ray)
 {
     RayHit bestHit=CreateRayHit();
-    //IntersectGroundPlane(ray,bestHit);
+    IntersectGroundPlane(ray,bestHit);
     IntersectSphere(ray,bestHit,float4(0 , 3.0f, 0, 1.0f));
     return bestHit;
 }
@@ -114,7 +114,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     Result.GetDimensions(width,height);
 
     //[0,1] →[-1,1]
-    float2 uv=float2((id.xy+float2(0.5f,0.5f))/float2(width,height)*2.0f-1.0f);
+    float2 uv=float2((id.xy+_PixelOffset)/float2(width,height)*2.0f - 1.0f);
 
     //Get a ray for the UVs
     Ray ray=CreateCameraRay(uv);

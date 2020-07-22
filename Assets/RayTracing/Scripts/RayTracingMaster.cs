@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
 public class RayTracingMaster : MonoBehaviour
 {
@@ -11,15 +8,27 @@ public class RayTracingMaster : MonoBehaviour
     private Camera _camera;
 
     public Texture SkyboxTexture;
+
+    private uint _currentSample = 0;
+    private Material _addMaterial;
     private void Awake()
     {
         _camera = GetComponent<Camera>();
+    }
+    private void Update()
+    {
+        if (transform.hasChanged)
+        {
+            _currentSample = 0;
+            transform.hasChanged = false;
+        }
     }
     private void SetShaderParameters()
     {
         rayTracingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);
         rayTracingShader.SetMatrix("_CameraInverseProjection", _camera.projectionMatrix.inverse);
         rayTracingShader.SetTexture(0, "_SkyboxTexture", SkyboxTexture);
+        rayTracingShader.SetVector("_PixelOffset", new Vector2(Random.value, Random.value));
     }
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
@@ -38,7 +47,11 @@ public class RayTracingMaster : MonoBehaviour
         rayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, 1);
 
         //Blit the result texture to the screen
-        Graphics.Blit(_target, destination);
+        if (_addMaterial == null)
+            _addMaterial = new Material(Shader.Find("Hidden/AddShader"));
+        _addMaterial.SetFloat("_Sample", _currentSample);
+        Graphics.Blit(_target, destination,_addMaterial);
+        _currentSample++;
     }
 
     private void InitRenderTexture()
@@ -52,6 +65,7 @@ public class RayTracingMaster : MonoBehaviour
             _target = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
             _target.enableRandomWrite = true;
             _target.Create();
+            _currentSample = 0;
         }
     }
 }
